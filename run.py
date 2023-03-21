@@ -202,7 +202,7 @@ def vote():
             
         print(f"DEBUG: {request.form['vote']}-Vote went through. Rating is now: {current_rating}")
         
-        if current_rating < -4:
+        if current_rating <= -MAX_DOWNVOTES:
             asyncio.run(next_track())
             current_rating = 0
             print("Current track voted away!")
