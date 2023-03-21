@@ -200,7 +200,7 @@ def vote():
         elif request.form['vote'] == 'down':
             current_rating -= 1
             
-        print(f"DEBUG: {request.form['vote']}-Vote went through.")
+        print(f"DEBUG: {request.form['vote']}-Vote went through. Rating is now: {current_rating}")
         
         if current_rating < -4:
             asyncio.run(next_track())
