@@ -56,4 +56,4 @@ In my case, I used a reverse proxy and `SERVER_BIND=0.0.0.0`, so that guests do 
 
 ## Liked songs
 
-So that after the party everyone can enjoy the songs he liked, there is the `/liked` endpoint of the server. Using the same device it will display the liked songs connected to the unique id in the device cookie.
+So that after the party everyone can enjoy the songs they liked, there is the `/liked` endpoint of the server. Using the same device it will display the liked songs connected to the unique id in the device cookie.
