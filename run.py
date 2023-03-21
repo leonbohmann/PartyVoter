@@ -182,6 +182,8 @@ def current_media():
             # Poll data from the database
             # and see if there's a new message
             data0 = asyncio.run(get_media_info())
+            if not data0: 
+                continue
             data = {}
             data['artist'] = data0['artist']
             data['title'] = data0['title']
