@@ -190,6 +190,7 @@ def vote():
     if last_vote_time \
         and now - last_vote_time < timedelta(seconds=COOLDOWN_TIME_SECONDS):            
         time_left = COOLDOWN_TIME_SECONDS - (now - last_vote_time).seconds
+        print("DEBUG: Vote not possible. Cooldown active.")
         return {'success': False, 'time_left': time_left}
     else:
         session['last_vote_time'] = now
@@ -199,9 +200,12 @@ def vote():
         elif request.form['vote'] == 'down':
             current_rating -= 1
             
+        print(f"DEBUG: {request.form['vote']}-Vote went through.")
+        
         if current_rating < -4:
             asyncio.run(next_track())
             current_rating = 0
+            print("Current track voted away!")
             
         return {'success': True}
 
