@@ -1,28 +1,39 @@
 import asyncio
 import json
 import time
-from flask import Flask, Response, session, request, render_template, jsonify
+import uuid
+from flask import Flask, Response, flash, make_response, session, request, render_template
+from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime, timedelta
-from winsdk.windows.media.control import \
-    GlobalSystemMediaTransportControlsSessionManager as MediaManager
-from winsdk.windows.media.control import \
-    GlobalSystemMediaTransportControlsSession as MediaSession
-from winsdk.windows.storage.streams import \
-    IRandomAccessStreamReference
+from sqlalchemy import ARRAY, String
+from winsdk.windows.media.control import GlobalSystemMediaTransportControlsSessionManager as MediaManager
+from winsdk.windows.media.control import GlobalSystemMediaTransportControlsSession as MediaSession
+from winsdk.windows.storage.streams import IRandomAccessStreamReference
 import threading
 import base64
 
 # create app
 app = Flask(__name__)
 app.secret_key = 'XaHN9wNidcRj4i2YmPbYq7XWgSeLYjr'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///voter.db'
+db = SQLAlchemy(app)
 
-COOLDOWN_TIME = 3  # seconds
+COOLDOWN_TIME = 15  # seconds
+MAX_DOWNVOTES = 3
 current_rating = 0
 lnr_key = 'last_known_rating'
 voted = False
 last_title = ''
 detected_song_change = False
 latest_media_thumb = 'media_thumb.jpg'
+
+class Voter(db.Model):
+    id = db.Column(db.Integer, primary_key=True, unique=True)
+    username = db.Column(db.String(50))
+    songs = db.Column(db.Text)
+    
+    def __repr__(self):
+        return f'<Voter {self.username}>'
 
 async def get_session() -> MediaSession:
     sessions = await MediaManager.request_async()
@@ -58,13 +69,74 @@ async def prev_track():
     if session:
         await session.try_skip_previous_async()        
 
+async def add_song_to_user():
+    """Add the currently playing song to users voter data store."""
+    music_data = await get_media_info()
+    voter = get_user_voter()
+    songs = json.loads(voter.songs)
+    liked_song = {'artist': music_data["artist"], 'title': music_data["title"]}
+    songs.append(liked_song)
+    voter.songs = json.dumps(songs)
+    db.session.commit()
+    
+@app.route('/liked')
+def get_liked_songs():
+    voter = get_user_voter()
+    songs = json.loads(voter.songs)
+    return render_template('liked.html', songs = enumerate(songs))
+
+def get_user_id() -> str | None:
+    """Returns the unique user id from cookie.
+
+    Returns:
+        str | None: User UUID as string.
+    """
+    if 'userID' in request.cookies:
+        return str(request.cookies.get('userID'))    
+
+def get_user_voter() -> Voter | None:
+    """Tries to retrieve the voter object from database.
+
+    Returns:
+        db.Model: Voter model from database.
+    """
+    user_id = get_user_id()
+    if user_id:
+        voter = Voter.query.filter_by(username=user_id).first()    
+        return voter
+
 @app.route('/')
 def index():
+    db.create_all()
     global current_rating
+    
     if not session.get('last_vote_time'):
         session['last_vote_time'] = datetime.min
     
-    return render_template('index.html', current_rating=current_rating)
+    resp = make_response(render_template('index.html', current_rating=current_rating,\
+        COOLDOWN_TIME=COOLDOWN_TIME))
+    
+    # check if cookie and voter object are available
+    if not get_user_id() or not get_user_voter():
+        uid = str(uuid.uuid1())
+        register_user(uid)
+        resp.set_cookie('userID', uid)
+        flash("New user logged in!")
+    
+    return resp
+
+def register_user(uid: str):
+    """Create the voter object for a user uuid.
+
+    Args:
+        uid (str): Unique user id.
+    """
+    new_voter = Voter(username=uid, songs='[]')
+    
+    db.session.add(new_voter)
+    db.session.commit()
+    
+    print(f'New user with id "{uid}".')
 
 @app.route('/vote', methods=['POST'])
 def vote():
@@ -78,6 +150,7 @@ def vote():
         session['last_vote_time'] = now
         if request.form['vote'] == 'up':
             current_rating += 1
+            asyncio.run(add_song_to_user())
         elif request.form['vote'] == 'down':
             current_rating -= 1
             
@@ -175,4 +248,4 @@ if __name__ == '__main__':
     # background task to reset counter when song changes
     threading.Timer(1.0, reset_rating_on_song_change).start()
     
-    app.run(host="0.0.0.0")
+    app.run(host="0.0.0.0", port=8099)
