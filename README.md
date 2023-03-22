@@ -14,12 +14,15 @@ It is **recommended** to create a virtual environment before installing the requ
 
 To use the server execute the following:
 
+1. Clone the repository:
+```ps
+git clone https://github.com/leonbohmann/partyvoter
+```
+2. Install the requirements
 ```ps
 pip install -r requirements.txt
 ```
-
-You can then use the `run.bat` file which is merely a clickable wrapper around:
-
+3. Run the server
 ```ps
 python run.py
 ```
