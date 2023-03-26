@@ -29,7 +29,7 @@ SITE_NAME = "PartyVoter"
 SERVER_PORT = 8099
 SERVER_BIND = "0.0.0.0"
 
-VOTE_MODE = 'oncepertrack' # other modes: 'oncepertrack'
+VOTE_MODE = 'timed' # modes: 'oncepertrack', 'timed'
 
 # globally used variables
 current_rating = 0              # rating for current song
