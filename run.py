@@ -206,7 +206,7 @@ def get_thumb():
     
     # 5MB (5 million byte) buffer - thumbnail unlikely to be larger
     thumb_read_buffer = Buffer(5000000)
-
+    
     # copies data from data stream reference into buffer created above
     asyncio.run(read_stream_into_buffer(thumb_stream_ref, thumb_read_buffer))
 

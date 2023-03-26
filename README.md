@@ -51,12 +51,21 @@ MAX_DOWNVOTES = 3
 SITE_NAME = "PartyVoter"
 SERVER_PORT = 8099
 SERVER_BIND = "0.0.0.0"
+VOTE_MODE = 'timed' # modes: 'oncepertrack', 'timed'
 ```
 
 When using `SERVER_BIND=0.0.0.0`, the flask server will bind to a public socket, so that your server is available through your LAN.
 
 In my case, I used a reverse proxy and `SERVER_BIND=0.0.0.0`, so that guests do not have to be connected to the WLAN in order to put votes.
 
+`COOLDOWN_TIME_SECONDS` is only used if `VOTE_MODE` is `timed`. Otherwise, votings are allowed only once per track.
+
 ## Liked songs
 
 So that after the party everyone can enjoy the songs they liked, there is the `/liked` endpoint of the server. Using the same device it will display the liked songs connected to the unique id in the device cookie.
+
+## Ideas
+
+- Method to export liked songs to Spotify or Share
+- Beautify buttons on-click behavior (scale, zoom, etc)
+- ...
