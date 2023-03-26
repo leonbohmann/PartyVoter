@@ -102,6 +102,25 @@ def try_get_user_id() -> str | None:
     if 'userID' in request.cookies:
         return str(request.cookies.get('userID'))    
 
+def try_get_cooldown_time() -> int:
+    """Calculate the cooldown time from the last vote time and the current time.
+
+    Returns:
+        int: Seconds left of cooldown.
+    """
+    
+    if 'last_vote_time' in session:
+        last_vote_time = session['last_vote_time']
+    else:
+        last_vote_time = session['last_vote_time'] = datetime.min
+        
+    last_vote_time = last_vote_time.replace(tzinfo=None)
+    time_since_vote = datetime.now() - last_vote_time
+    seconds_since_vote = time_since_vote.total_seconds()
+    cooldown_remaining = COOLDOWN_TIME_SECONDS - seconds_since_vote
+    
+    return cooldown_remaining if cooldown_remaining > 0 else 0
+
 def try_get_user_voter() -> Voter | None:
     """Tries to retrieve the voter object from database.
 
@@ -207,7 +226,7 @@ def vote():
             current_rating = 0
             print("Current track voted away!")
             
-        return {'success': True}
+        return {'success': True, 'time_left': COOLDOWN_TIME_SECONDS}
 
 @app.route('/rating')
 def rating():
@@ -252,8 +271,9 @@ def index():
     if not session.get('last_vote_time'):
         session['last_vote_time'] = datetime.min
     
-    resp = make_response(render_template('index.html', current_rating=current_rating,\
-        COOLDOWN_TIME=COOLDOWN_TIME_SECONDS, SITE_NAME = SITE_NAME))
+    resp = make_response(render_template('index.html', current_rating=current_rating, \
+        COOLDOWN_TIME=COOLDOWN_TIME_SECONDS, SITE_NAME = SITE_NAME, \
+            cooldown_remaining=try_get_cooldown_time()))
     
     # check if cookie and voter object are available
     if not try_get_user_id() or not try_get_user_voter():

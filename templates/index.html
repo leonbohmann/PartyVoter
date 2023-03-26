@@ -148,12 +148,28 @@
             }
         }
 
-        function vote(voteType) {
+        function vote(voteType, buttonId) {
             var xhr = new XMLHttpRequest();
             xhr.open('POST', '/vote');
             xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');            
+
+            xhr.onload = function(evt) {
+                var responseData = JSON.parse(xhr.responseText);
+                if (responseData.success === true) {
+                    console.log('Vote successful!');                    
+                    var button = document.getElementById(buttonId);
+                    button.innerHTML = '&#10003;';
+                    // Remove the checkmark after 5 seconds
+                    setTimeout(function() {
+                        button.innerHTML = (voteType === 'up') ? '👍' : '👎';
+                    }, 5000);
+                } else {
+                    console.error('Vote failed!');
+                    updateCooldown(responseData.time_left);
+                }
+            };
             xhr.send(encodeURI(`vote=${voteType}`));
-            updateCooldown({{COOLDOWN_TIME}});
+            
         }
 
 		function showlikes(){
@@ -161,10 +177,10 @@
 		}
 
         document.getElementById('upvote').onclick = function() {
-            vote('up');
+            vote('up', 'upvote');
         };
         document.getElementById('downvote').onclick = function() {
-            vote('down');
+            vote('down', 'downvote');
         };
 
 		document.getElementById('show_likes').onclick = function() {
