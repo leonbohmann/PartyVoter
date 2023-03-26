@@ -1,18 +1,21 @@
 import asyncio
+import base64
 import json
+import threading
 import time
 import uuid
-from flask import Flask, Response, make_response, session, request, render_template
-from flask_sqlalchemy import SQLAlchemy
-from flask_sessions import RedisSessionInterface
 from datetime import datetime, timedelta
-from winsdk.windows.media.control import \
-    GlobalSystemMediaTransportControlsSessionManager as MediaManager
-from winsdk.windows.media.control import \
-    GlobalSystemMediaTransportControlsSession as MediaSession
+
+from flask import Flask, Response, make_response, render_template, request, session
+from flask_sessions import RedisSessionInterface
+from flask_sqlalchemy import SQLAlchemy
+from winsdk.windows.media.control import (
+    GlobalSystemMediaTransportControlsSession as MediaSession,
+)
+from winsdk.windows.media.control import (
+    GlobalSystemMediaTransportControlsSessionManager as MediaManager,
+)
 from winsdk.windows.storage.streams import IRandomAccessStreamReference
-import threading
-import base64
 
 # initialization
 app = Flask(__name__)
@@ -188,8 +191,7 @@ def reset_rating_on_song_change():
 
 def get_thumb():
     """Saves the current playing media thumbnail to a local file."""
-    from winsdk.windows.storage.streams import \
-            DataReader, Buffer, InputStreamOptions
+    from winsdk.windows.storage.streams import Buffer, DataReader, InputStreamOptions
 
 
     async def read_stream_into_buffer(stream_ref , buffer):
