@@ -147,6 +147,25 @@
                 document.getElementById('downvote').disabled = false;
             }
         }
+        
+        function displayOncePerTrack(reset){
+            if (reset) {
+                document.getElementById('timeLeftContainer').style.display = "block";
+                document.getElementById('buttonContainer').style.display = "none";              
+                document.getElementById('upvote').disabled = true;
+                document.getElementById('downvote').disabled = true;              
+                countdown.querySelector('.countdown-number').textContent = 'You can only vote once per track!';
+                
+                setTimeout(function() {
+                    displayOncePerTrack(false);
+                }, 2000);
+            } else {
+                document.getElementById('timeLeftContainer').style.display = "none";
+                document.getElementById('buttonContainer').style.display = "block";            
+                document.getElementById('upvote').disabled = false;
+                document.getElementById('downvote').disabled = false;
+            }
+        }
 
         function vote(voteType, buttonId) {
             var xhr = new XMLHttpRequest();
@@ -165,7 +184,13 @@
                     }, 5000);
                 } else {
                     console.error('Vote failed!');
-                    updateCooldown(responseData.time_left);
+
+                    if( responseData.mode == 'timed')
+                    {
+                        updateCooldown(responseData.time_left);
+                    }else if (responseData.mode == 'oncepertrack'){
+                        displayOncePerTrack(true);
+                    }
                 }
             };
             xhr.send(encodeURI(`vote=${voteType}`));

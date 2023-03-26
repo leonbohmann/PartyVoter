@@ -4,6 +4,7 @@ import time
 import uuid
 from flask import Flask, Response, make_response, session, request, render_template
 from flask_sqlalchemy import SQLAlchemy
+from flask_sessions import RedisSessionInterface
 from datetime import datetime, timedelta
 from winsdk.windows.media.control import \
     GlobalSystemMediaTransportControlsSessionManager as MediaManager
@@ -25,6 +26,7 @@ SITE_NAME = "PartyVoter"
 SERVER_PORT = 8099
 SERVER_BIND = "0.0.0.0"
 
+VOTE_MODE = 'oncepertrack' # other modes: 'oncepertrack'
 
 # globally used variables
 current_rating = 0              # rating for current song
@@ -132,6 +134,26 @@ def try_get_user_voter() -> Voter | None:
         voter = Voter.query.filter_by(username=user_id).first()    
         return voter
 
+def remove_key_from_sessions(key):
+    # get the session interface
+    session_interface = app.session_interface
+
+    # check if the session interface is a RedisSessionInterface
+    if isinstance(session_interface, RedisSessionInterface):
+        # get the Redis instance
+        redis = session_interface.redis
+
+        # get all session keys
+        session_keys = redis.keys(f'{session_interface.key_prefix}:*')
+
+        # iterate over session keys and remove the key from each session
+        for session_key in session_keys:
+            session_data = redis.get(session_key)
+            if session_data is not None:
+                session = session_interface.session_class(pickler=session_interface._get_picked(),
+                                                           data=session_data)
+                session.pop(key, None)
+                redis.set(session_key, session_interface.get_signer().sign(session.dumps()))
 
 def register_user(uid: str):
     """Create the voter object for a user uuid.
@@ -157,6 +179,7 @@ def reset_rating_on_song_change():
         last_title = media_info['title']
         get_thumb()
         detected_song_change = True
+        remove_key_from_sessions('last_voted_track')
     else:
         detected_song_change = False   
     
@@ -201,18 +224,47 @@ def get_liked_songs():
     return render_template('liked.html', songs = enumerate(songs), \
         SITE_NAME = SITE_NAME)
 
+def can_user_vote() -> bool:
+    # timed: allow user vote every COOLDOWN_TIME_SECONDS
+    if VOTE_MODE == 'timed':
+        now = datetime.now()
+        last_vote_time = session.get('last_vote_time').replace(tzinfo=None)
+        return last_vote_time \
+            and now - last_vote_time > timedelta(seconds=COOLDOWN_TIME_SECONDS)
+                        
+    elif VOTE_MODE == 'oncepertrack':
+        media = asyncio.run(get_media_info())
+        if media and 'last_voted_track' not in session:
+            session['last_voted_track'] = media['title']
+            return True
+        elif media and 'last_voted_track' in session:
+            current_title = media['title']
+            return current_title != session['last_voted_track']
+                                   
+        return False
+
+
+def user_voted() -> None:
+    media =asyncio.run( get_media_info() )
+    
+    if VOTE_MODE == 'timed':
+        session['last_vote_time'] = datetime.now()
+    elif VOTE_MODE == 'oncepertrack' and media:
+        session['last_voted_track'] = media['title']
+    else:
+        raise Exception("Voting not possible!")
+
 @app.route('/vote', methods=['POST'])
 def vote():
     global current_rating
     now = datetime.now()
     last_vote_time = session.get('last_vote_time').replace(tzinfo=None)
-    if last_vote_time \
-        and now - last_vote_time < timedelta(seconds=COOLDOWN_TIME_SECONDS):            
+    if not can_user_vote():
         time_left = COOLDOWN_TIME_SECONDS - (now - last_vote_time).seconds
-        print("DEBUG: Vote not possible. Cooldown active.")
-        return {'success': False, 'time_left': time_left}
+        print("DEBUG: Vote not possible.")
+        return {'success': False, 'time_left': time_left, 'mode': VOTE_MODE}
     else:
-        session['last_vote_time'] = now
+        user_voted()
         if request.form['vote'] == 'up':
             current_rating += 1
             asyncio.run(add_song_to_user())
@@ -226,7 +278,7 @@ def vote():
             current_rating = 0
             print("Current track voted away!")
             
-        return {'success': True, 'time_left': COOLDOWN_TIME_SECONDS}
+        return {'success': True, 'time_left': COOLDOWN_TIME_SECONDS, 'mode': VOTE_MODE}
 
 @app.route('/rating')
 def rating():
