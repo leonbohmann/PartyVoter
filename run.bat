@@ -1,2 +1,2 @@
 @echo off
-py run.py
+call "%~dp0.\.venv\Scripts\python.exe" run.py
